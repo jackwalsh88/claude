@@ -1,7 +1,7 @@
-# Answer 1 of 8 — undisclosed model (Arena Agent mode)
+# Answer 1 of 8 — anonymous Arena Agent-mode model
 
 - **Source page:** Arena (Agent mode)
-- **Model label shown by Arena:** none. The saved Agent-mode page does not disclose the model. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08) is a different response, so this one remains undisclosed.
+- **Model label shown by Arena:** none. The saved Agent-mode page does not disclose the model. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08) is a different response, so this one is an anonymous Arena agent (confirmed by the user).
 
 ## Prompt
 

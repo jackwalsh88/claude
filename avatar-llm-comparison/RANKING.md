@@ -23,7 +23,7 @@
 | 5 | `grok-4.20-multi-agent-beta-0309` ([06](06-grok-4.20-multi-agent-beta-0309.md)) | 2 | 1 | 0 | ~10 |
 | 6 | `qwen3.5-397b-a17b` ([07](07-qwen3.5-397b-a17b.md)) | 4 | 2 | 1 | ~8 (plus leaked reasoning in the output) |
 | 7 | `muse-spark-1.3-max` ([04](04-muse-spark-1.3-max.md)) | 6 | 3 | 1 | ~15 |
-| 8 | undisclosed Arena Agent-mode model ([01](01-undisclosed-arena-agent-mode.md)) | 7 | 2 | 1 | ~8 |
+| 8 | anonymous Arena Agent-mode model ([01](01-anonymous-arena-agent.md)) | 7 | 2 | 1 | ~8 |
 
 **How ties were broken.** Ranks 1 and 2 both have zero hard errors. `gpt-5.6-terra-low` reaches that by making almost no checkable claims (vendors are named as "Synthesia-style", "HeyGen-style"; no versions, licences, prices or performance numbers). `claude-fable-5.1-max` makes roughly forty checkable claims and all but one minor threshold figure verified. Under a pure "fewest flaws" metric `gpt-5.6-terra-low` would be first; under "accuracy of the information actually supplied" the order shown holds. Both readings are stated so the reader can choose.
 
@@ -142,9 +142,9 @@ This answer ran six live web searches before replying, which is why it is the on
 
 **Partially inaccurate:** hosted avatar pricing "$0.05–$0.30/min". Published rates are Tavus $0.26–0.35, D-ID about $0.35, HeyGen $0.18–0.78 per minute (E26); the low end is not supported.
 
-## 8. Undisclosed Arena Agent-mode model — rank 8
+## 8. Anonymous Arena Agent-mode model — rank 8
 
-Note on identity: the saved Arena page shows no model label for this answer. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08, from OpenRouter) is a different response, so this one stays undisclosed.
+Note on identity: the saved Arena page shows no model label for this answer. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08, from OpenRouter) is a different response, so this one is an anonymous Arena agent (confirmed by the user).
 
 **Verified correct:** Wav2Lip, SadTalker, MuseTalk, LivePortrait, Hedra, D-ID, Synthesia as 2D talking-head options; ElevenLabs, Cartesia, PlayHT, Azure as streaming TTS; Coqui XTTS, F5-TTS, StyleTTS2, CosyVoice, Sesame CSM as open models; Instant-NGP and Nerfstudio as NeRF tooling; C2PA for provenance; 3DGS asset sizes needing streaming.
 
