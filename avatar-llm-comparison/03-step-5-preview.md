@@ -1,4 +1,4 @@
-# Answer 3 of 7 — `step-5-preview`
+# Answer {i} of 8 — `step-5-preview`
 
 - **Source page:** Arena1 (Battle)
 - **Model label shown by Arena:** `step-5-preview`

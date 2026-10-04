@@ -1,7 +1,7 @@
-# Answer 1 of 7 — `space-bunny-alpha`
+# Answer 1 of 8 — undisclosed model (Arena Agent mode)
 
 - **Source page:** Arena (Agent mode)
-- **Model label shown by Arena:** none. The saved Agent-mode page does not disclose the model; the name `space-bunny-alpha` was supplied by the user. Note: the user's identifying phrase "First: the framing question that decides everything" does not occur in this response or in any of the four saved pages.
+- **Model label shown by Arena:** none. The saved Agent-mode page does not disclose the model. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08) is a different response, so this one remains undisclosed.
 
 ## Prompt
 

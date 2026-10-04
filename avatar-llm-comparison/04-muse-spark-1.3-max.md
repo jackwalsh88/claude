@@ -1,4 +1,4 @@
-# Answer 4 of 7 — `muse-spark-1.3-max`
+# Answer {i} of 8 — `muse-spark-1.3-max`
 
 - **Source page:** Arena2 (Battle)
 - **Model label shown by Arena:** `muse-spark-1.3-max`

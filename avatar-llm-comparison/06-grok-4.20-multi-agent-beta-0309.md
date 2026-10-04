@@ -1,4 +1,4 @@
-# Answer 6 of 7 — `grok-4.20-multi-agent-beta-0309`
+# Answer {i} of 8 — `grok-4.20-multi-agent-beta-0309`
 
 - **Source page:** Arena3 (Side by Side)
 - **Model label shown by Arena:** `grok-4.20-multi-agent-beta-0309`

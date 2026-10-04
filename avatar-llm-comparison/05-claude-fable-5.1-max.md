@@ -1,4 +1,4 @@
-# Answer 5 of 7 — `claude-fable-5.1-max`
+# Answer {i} of 8 — `claude-fable-5.1-max`
 
 - **Source page:** Arena2 (Battle)
 - **Model label shown by Arena:** `claude-fable-5.1-max`

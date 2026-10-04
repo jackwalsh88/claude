@@ -1,4 +1,4 @@
-# Answer 7 of 7 — `qwen3.5-397b-a17b`
+# Answer {i} of 8 — `qwen3.5-397b-a17b`
 
 - **Source page:** Arena3 (Side by Side)
 - **Model label shown by Arena:** `qwen3.5-397b-a17b`

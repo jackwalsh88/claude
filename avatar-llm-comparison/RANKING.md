@@ -1,12 +1,14 @@
-# Accuracy ranking of seven LLM answers
+# Accuracy ranking of eight LLM answers
 
-**Prompt (identical for all seven):** "would you go about putting together a real time rendered (frame rate) photorealistic avatar with generated voice. What would be your options and their requirements"
+**Prompt (identical for all eight):** "would you go about putting together a real time rendered (frame rate) photorealistic avatar with generated voice. What would be your options and their requirements"
 
 **Date basis for "current" facts:** 2026-10-04. A claim is marked *dated* when it was true at some point but is no longer true on that date (for example, a product that has since shut down).
 
 **Evidence:** every finding below cites an entry in the [Evidence catalogue](#evidence-catalogue) (E1–E45). Sources were fetched during this session; where a vendor page was unreachable from this sandbox (Hugging Face, Microsoft Learn, hedra.com, synthesia.io, docs.livekit.io, developers.openai.com), the finding relies on the project's GitHub repository, the vendor's secondary pages, or search snippets, and says so.
 
-**Disclosure:** this ranking was produced by Claude Fable 5.1. One of the seven answers is from `claude-fable-5.1-max`, the same model family. Every finding for that answer is backed by the same kind of external evidence as the others, and the one dated item and one numeric slip it contains are listed. A reader can re-derive the ranking from the error tallies alone.
+**Update (same day):** the user supplied an OpenRouter log of the real `Space Bunny Alpha` answer. It is a distinct eighth response (file 08). The Arena Agent-mode answer (file 01), provisionally labelled `space-bunny-alpha` earlier, is therefore back to "undisclosed".
+
+**Disclosure:** this ranking was produced by Claude Fable 5.1. One of the eight answers is from `claude-fable-5.1-max`, the same model family. Every finding for that answer is backed by the same kind of external evidence as the others, and the one dated item and one numeric slip it contains are listed. A reader can re-derive the ranking from the error tallies alone.
 
 ---
 
@@ -16,15 +18,18 @@
 |---|---|---|---|---|---|
 | 1 | `claude-fable-5.1-max` ([05](05-claude-fable-5.1-max.md)) | 0 (one minor numeric slip) | 1 (Hedra Live) | 2 | ~40 |
 | 2 | `gpt-5.6-terra-low` ([02](02-gpt-5.6-terra-low.md)) | 0 | 0 | 0 | ~10 (few checkable claims) |
-| 3 | `step-5-preview` ([03](03-step-5-preview.md)) | 2 | 2 | 1 | ~15 |
-| 4 | `grok-4.20-multi-agent-beta-0309` ([06](06-grok-4.20-multi-agent-beta-0309.md)) | 2 | 1 | 0 | ~10 |
-| 5 | `qwen3.5-397b-a17b` ([07](07-qwen3.5-397b-a17b.md)) | 4 | 2 | 1 | ~8 (plus leaked reasoning in the output) |
-| 6 | `muse-spark-1.3-max` ([04](04-muse-spark-1.3-max.md)) | 6 | 3 | 1 | ~15 |
-| 7 | `space-bunny-alpha` (undisclosed Agent-mode model) ([01](01-space-bunny-alpha.md)) | 7 | 2 | 1 | ~8 |
+| 3 | `space-bunny-alpha` ([08](08-space-bunny-alpha.md)) | 3 | 0 (it ran live web searches) | 4 | ~25 |
+| 4 | `step-5-preview` ([03](03-step-5-preview.md)) | 2 | 2 | 1 | ~15 |
+| 5 | `grok-4.20-multi-agent-beta-0309` ([06](06-grok-4.20-multi-agent-beta-0309.md)) | 2 | 1 | 0 | ~10 |
+| 6 | `qwen3.5-397b-a17b` ([07](07-qwen3.5-397b-a17b.md)) | 4 | 2 | 1 | ~8 (plus leaked reasoning in the output) |
+| 7 | `muse-spark-1.3-max` ([04](04-muse-spark-1.3-max.md)) | 6 | 3 | 1 | ~15 |
+| 8 | undisclosed Arena Agent-mode model ([01](01-undisclosed-arena-agent-mode.md)) | 7 | 2 | 1 | ~8 |
 
 **How ties were broken.** Ranks 1 and 2 both have zero hard errors. `gpt-5.6-terra-low` reaches that by making almost no checkable claims (vendors are named as "Synthesia-style", "HeyGen-style"; no versions, licences, prices or performance numbers). `claude-fable-5.1-max` makes roughly forty checkable claims and all but one minor threshold figure verified. Under a pure "fewest flaws" metric `gpt-5.6-terra-low` would be first; under "accuracy of the information actually supplied" the order shown holds. Both readings are stated so the reader can choose.
 
-Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.5-397b-a17b`, but it also contains more verified factual errors (6 vs 4). The ranking is by accuracy, as requested, not by usefulness.
+Ranks 3 to 5: `space-bunny-alpha` has one more hard error than `step-5-preview` or `grok-4.20` (3 vs 2) but zero stale claims and the largest number of verified, current-state specifics after rank 1, because it searched the web before answering. By hard-error count alone it would sit at rank 5; it is placed at 3 for the same reason rank 1 sits above rank 2.
+
+Ranks 6 and 7: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.5-397b-a17b`, but it also contains more verified factual errors (6 vs 4). The ranking is by accuracy, as requested, not by usefulness.
 
 ---
 
@@ -56,7 +61,30 @@ Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.
 
 **Issues found:** none that could be falsified. The answer avoids versions, licences, prices and performance figures, and names vendors only as categories ("Synthesia-style", "HeyGen-style", "Tavus-style"). It is accurate because it is non-committal. It also contains no dated items (it never mentions Ready Player Me or Hedra).
 
-## 3. `step-5-preview` — rank 3
+## 3. `space-bunny-alpha` — rank 3
+
+This answer ran six live web searches before replying, which is why it is the only one with no stale product claims. It also provided 15 citations; the ones checked below hold up except where noted.
+
+**Verified correct (selection):**
+- Audio2Face-3D diffusion model streams in bursts of about 28 frames every ~470 ms because of its 1 s window / 0.5 s stride; the regression model emits one frame per chunk (E48).
+- ACE Unreal plugin 2.5 supports UE 5.5 and 5.6 only (E49).
+- Omniverse Launcher deprecated 1 October 2025 (E50).
+- MetaHuman 5.8 shipped with UE 5.8 (17 June 2026) and Epic open-sourced RigLogic/DNA as OpenRigLogic under MIT (E51).
+- GaussianHeadTalk (WACV 2026) predicts 3DMM parameters from audio for wobble-free Gaussian talking heads (E52).
+- MOVA released 29 January 2026, Apache-2.0, 8-second 360p clips; LatentSync 1.6 Apache-2.0, 512×512, about 18 GB VRAM (E53).
+- Wav2Lip is non-commercial and generates a 96 px mouth region (E54). MuseTalk 1.5: 30 fps+ on a V100, MIT, single-pass latent inpainting rather than iterative denoising (E34).
+- Cartesia's SSE/WebSocket API returns phoneme timestamp events (E56); Azure viseme events and Amazon speech marks exist (E12, E44). ElevenLabs Flash v2.5 about 75 ms (E25). Kokoro Apache-2.0 82M; Chatterbox MIT; XTTS-v2 CPML (E38).
+- Visionary is an open WebGPU + ONNX Gaussian-splat platform (E57); LiveAvatar (Intel Labs) exists as a monocular-to-3DGS head avatar project (E58).
+- `Enable Material Parameter Caching` is a real MetaHuman mesh-component property that caches parameter lookups to cut CPU cost (E59).
+
+**Hard errors:**
+1. Table row "Audio2Face-3D (ACE plugin) … Setup cost: High — needs per-character training". Audio2Face-3D retargets to any character through blendshape solving; per-character training is optional, not required (E55).
+2. "MetaHuman left Early Access and its licensing changed during 2026." Both happened with MetaHuman 5.6 in June 2025 (E16).
+3. "F5-TTS (MIT, cloning …)". The code is MIT but the released weights are CC-BY-NC, so it is not a permissive option for a product (E38).
+
+**Unverified:** "BONSAI reports 340 fps neural Gaussian avatars via WebGPU after 98% decoder pruning" (no indexed paper found under that name, E57); the 20–30 FPS per-character figure attributed to animated-map CPU cost (the setting exists, the number could not be sourced, E59); "MOVA ~48 GB" (its authors recommend at least 24 GB with offloading, E53); LiveAvatar ">20 fps with no per-subject training" (repository exists, the figure was not checked, E58).
+
+## 4. `step-5-preview` — rank 4
 
 **Verified correct:** MetaHuman Creator as a pre-scanned base with limited customisation; Audio2Face on RTX GPUs; Pixel Streaming; a latency table whose "lip-sync offset < 80 ms" sits inside the ITU detectability window (E40); RTX 6000 Ada 48 GB; "SaaS gives you a compressed video stream, not frame-rate rendering"; RVC and so-vits-svc correctly classed as voice changers rather than TTS (E6).
 
@@ -68,7 +96,7 @@ Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.
 
 **Weak / unverified:** "Audio2Face plugin for Unity" (NVIDIA's documented plugins are for Unreal Engine 5 and Maya; one secondary report mentions Unity, E14, E46). "Apple Silicon struggles with UE5 Lumen" overstates: Lumen with software ray tracing is supported on M1 and later, hardware ray tracing is not (E23). Lists "Coqui XTTS … Free" without noting its non-commercial licence (E38).
 
-## 4. `grok-4.20-multi-agent-beta-0309` — rank 4
+## 5. `grok-4.20-multi-agent-beta-0309` — rank 5
 
 **Verified correct:** UE5 + MetaHuman + Audio2Face + streaming TTS as the main production stack; Audio2Face is free / SDK available (E14); "RTX 4080/5090-class, 16 GB+ VRAM" is consistent with the 4080's 16 GB (E20); HeyGen, D-ID, Soul Machines, Convai are real vendors; NVIDIA ACE bundles Riva and Audio2Face.
 
@@ -80,7 +108,7 @@ Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.
 
 **Imprecise:** describes MetaHuman Animator as the tool that "turns a real person into a custom rigged head"; Animator is the animation solver, identity creation is the MetaHuman Identity / Mesh-to-MetaHuman workflow (E16, E17).
 
-## 5. `qwen3.5-397b-a17b` — rank 5
+## 6. `qwen3.5-397b-a17b` — rank 6
 
 **Output defect:** the response begins with roughly 900 words of leaked planning text ("Here's a thinking process that leads to…", "matches the detailed response provided previously") before the actual answer. This is not a factual error but it is content the user was not meant to receive.
 
@@ -98,7 +126,7 @@ Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.
 
 **Unverified:** Audio2Face connecting to UE5 "via OSC". Live Link is documented; OSC is not (E14).
 
-## 6. `muse-spark-1.3-max` — rank 6
+## 7. `muse-spark-1.3-max` — rank 7
 
 **Verified correct:** NVIDIA ACE reference stack (Riva, Audio2Face-3D, UE 5.5, Pixel Streaming) (E14); AWS g5.2xlarge / g6e at "$1.20–$2.50/hr" (actual $1.21 and $1.86, E21); Synthesia does have a real-time Interactive Avatar API (E11); ElevenLabs Turbo v2.5 and Cartesia Sonic latency figures (E25); 52 ARKit blendshapes as the rig standard; Live Link Face; consent requirements at ElevenLabs and HeyGen.
 
@@ -114,9 +142,9 @@ Ranks 5 and 6: `muse-spark-1.3-max` is far more detailed and useful than `qwen3.
 
 **Partially inaccurate:** hosted avatar pricing "$0.05–$0.30/min". Published rates are Tavus $0.26–0.35, D-ID about $0.35, HeyGen $0.18–0.78 per minute (E26); the low end is not supported.
 
-## 7. `space-bunny-alpha` (undisclosed Agent-mode model) — rank 7
+## 8. Undisclosed Arena Agent-mode model — rank 8
 
-Note on identity: the saved page shows no model label for this answer. The name `space-bunny-alpha` was supplied by the user. The user's identifying phrase "First: the framing question that decides everything" does not appear in this answer or anywhere in the four saved pages.
+Note on identity: the saved Arena page shows no model label for this answer. It was provisionally labelled `space-bunny-alpha` earlier in this session, but the user's actual Space Bunny Alpha log (answer 08, from OpenRouter) is a different response, so this one stays undisclosed.
 
 **Verified correct:** Wav2Lip, SadTalker, MuseTalk, LivePortrait, Hedra, D-ID, Synthesia as 2D talking-head options; ElevenLabs, Cartesia, PlayHT, Azure as streaming TTS; Coqui XTTS, F5-TTS, StyleTTS2, CosyVoice, Sesame CSM as open models; Instant-NGP and Nerfstudio as NeRF tooling; C2PA for provenance; 3DGS asset sizes needing streaming.
 
@@ -186,6 +214,18 @@ Note on identity: the saved page shows no model label for this answer. The name 
 - **E45** EU AI Act Article 50 transparency obligations (chatbot disclosure, deepfake labelling), applicable from 2026-08-02. https://artificialintelligenceact.eu/transparency-rules-article-50/
 - **E46** Unity support for Audio2Face: NVIDIA ACE documentation covers an Unreal plugin only. https://docs.nvidia.com/ace/ace-unreal-plugin/2.5/index.html ; one secondary report claims Unity plugins were included in the 2025 release. https://fptshop.com.vn/tin-tuc/tin-moi/nvidia-mo-cua-cong-nghe-ai-hoat-hinh-giong-noi-cho-tat-ca-nguoi-dung-trai-nghiem-188700 (treated as unverified)
 - **E47** No "Audio2Face 3.0" release found; Omniverse Audio2Face used 2023.x versioning and the open-source line is "Audio2Face-3D". https://developer.nvidia.com/blog/nvidia-omniverse-audio2face-app-now-available-in-open-beta ; https://github.com/NVIDIA/Audio2Face-3D-SDK
+- **E48** NVIDIA forum: Audio2Face-3D SDK v3.0 diffusion model "produces frames in bursts of ~28 frames every ~470ms, due to its 1-second sliding window with 0.5-second stride"; regression model outputs 1 frame per chunk. https://forums.developer.nvidia.com/t/audio2face-digital-human-sdk-v3-0-diffusion-model-frame-gap-during-streaming-inference-posting-here-as-digital-human-board-is-closed/361109 ; paper https://arxiv.org/abs/2508.16401
+- **E49** ACE Unreal Plugin 2.5: "tested and supported for UE 5.5 and 5.6", dropped 5.4. https://docs.nvidia.com/ace/ace-unreal-plugin/2.5/ace-unreal-plugin-changelog.html
+- **E50** Omniverse Launcher deprecated 2025-10-01. https://developer.nvidia.com/omniverse/legacy-tools
+- **E51** MetaHuman 5.8 / UE 5.8 released 2026-06-17; RigLogic and DNA libraries open-sourced as OpenRigLogic under MIT. https://www.metahuman.com/news/metahuman-5-8-is-now-available ; https://github.com/EpicGames/openriglogic ; https://www.cgchannel.com/tag/tmv/
+- **E52** GaussianHeadTalk, WACV 2026. https://arxiv.org/abs/2512.10939
+- **E53** MOVA (OpenMOSS) released 2026-01-29, Apache-2.0, 8 s at 360p, "at least 24GB GPU with offloading". https://comfyui-wiki.com/en/news/2026-01-29-openmoss-mova-video-audio-generation ; LatentSync 1.6 (ByteDance) Apache-2.0, 512×512, about 18 GB. https://sync.so/blog/what-is-latentsync ; https://news.creeta.com/en/open-source-lip-sync-models-2026/
+- **E54** Wav2Lip: "can only be used for personal/research/non-commercial purposes"; 96×96 face crop. https://github.com/Rudrabha/Wav2Lip
+- **E55** Audio2Face-3D "provides a blendshape solving process" to retarget output onto a target character; no per-character training required. https://arxiv.org/abs/2508.16401 ; https://docs.nvidia.com/ace/audio2face-3d-microservice/2.0/text/getting-started/overview.html
+- **E56** Cartesia TTS `add_phoneme_timestamps` returns phoneme-level timestamp events over SSE/WebSocket. https://docs.cartesia.ai/api-reference/tts/sse ; https://docs.cartesia.ai/examples/tts-sse-with-phoneme-timestamps
+- **E57** Visionary: WebGPU renderer with per-frame ONNX inference for Gaussian splats and neural avatars. https://arxiv.org/abs/2512.08478 ; no indexed source found for "BONSAI 340 fps" (searched 2026-10-04).
+- **E58** LiveAvatar (Intel Labs): live conversion of monocular video to 3D Gaussian head avatars. https://github.com/IntelLabs/LiveAvatar
+- **E59** MetaHuman `enable_material_parameter_caching`: "whether or not to cache material parameter to speed up setting scalar or vector value on materials". https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/class/MetaHumanTemplateMesh
 
 ## Limits of this check
 
