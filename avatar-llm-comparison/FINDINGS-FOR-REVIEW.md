@@ -2,6 +2,8 @@
 
 **Purpose.** Independent review of an accuracy ranking. Eight language models answered the same prompt; each answer was checked claim by claim against primary sources. This brief states the verdicts, the evidence behind each, and the method, in about ten minutes of reading. The full per-answer transcripts (files 01–08) and the complete catalogue sit beside this file; `RANKING.md` is the long form.
 
+**Intended reader.** A senior researcher in face analysis and 3D face reconstruction. Method names (3DGS, FLAME, NeRF, codec avatars, visemes, blendshape solving) are used without definition. Evidence points to papers and repositories rather than press where both exist. Section 4 lists the places where expert judgement would change the result most.
+
 **Prompt given to every model.** "would you go about putting together a real time rendered (frame rate) photorealistic avatar with generated voice. What would be your options and their requirements"
 
 **Date basis.** 2026-10-04. "Dated" means true once, no longer true on that date.
@@ -86,6 +88,18 @@ Evidence references (E-numbers) resolve in the appendix.
 - Hugging Face, Microsoft Learn, hedra.com, synthesia.io, docs.livekit.io and developers.openai.com were blocked from the checking environment. Those facts were taken from the project's GitHub repository, a vendor mirror or a search snippet, and are marked in the appendix.
 - Subjective engineering judgements (for example "hair groom is 40% of frame time") were not scored.
 - The exact date each chat was run is not recorded; staleness is judged against 2026-10-04.
+
+---
+
+## 4. Where expert review matters most
+
+1. **Attribution errors in the face-avatar literature** (ranks 7 and 8): Audio2Photoreal described as a Gaussian-splat avatar and as a 2D talking-head driver (E2); OmniAvatar attributed to Sony and to 3DGS (E1); Nerfies classed as 3DGS (E3); FaceX-Zoo listed as an audio-to-blendshape model (E4). These are the clearest errors in the set and the easiest for a face-vision reader to confirm or refute from memory.
+2. **One-shot versus person-specific taxonomy.** Three answers (ranks 5, 7 and in part 8) treat LivePortrait as a per-identity trained model (E35). The checker scored this as a hard error each time. If the reviewer considers the distinction immaterial for a practitioner, ranks 5 and 7 each lose one error.
+3. **Practicality of Gaussian-splat avatars for live dialogue** (ranks 4 and 5). The checker relied on FlashAvatar, SplattingAvatar and GaussianTalker figures (E28, E29) to call "needs 24–64 cameras" and "A100/H100 for hours to a day" errors. Whether those research-paper numbers reflect deployable quality is a judgement the reviewer is better placed to make.
+4. **Unverified research claims in rank 3**: "BONSAI 340 fps" (E57), LiveAvatar ">20 fps with no per-subject training" (E58), GaussianHeadTalk described as real time (E52). None could be confirmed from indexed sources; none was scored as an error. If any is false, rank 3 drops.
+5. **The A/V sync threshold.** Rank 1's "−45/+100 ms" was scored a minor slip against ITU-R BT.1359's +45/−125 ms (E40). A reviewer who treats this as a hard error moves rank 1 to one error, which would tie it with none and still leave it first on verified specifics, but the "fewest flaws" reading in Section 1 would then favour rank 2 more strongly.
+6. **The two ranking judgement calls** in Section 1 (verified specifics versus flaw count). The tallies are given so the ordering can be recomputed under either rule.
+7. **Not scored:** consent, biometric-data and disclosure statements in the answers were checked for existence (EU AI Act Article 50, E45 in `RANKING.md`) but not for legal adequacy.
 
 ---
 
