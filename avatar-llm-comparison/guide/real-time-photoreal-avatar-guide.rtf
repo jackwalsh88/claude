@@ -1,0 +1,507 @@
+{\rtf1\ansi\deff0{\fonttbl{\f0\fswiss Calibri;}{\f1\fmodern Courier New;}}{\colortbl;\red0\green0\blue0;\red60\green60\blue60;\red232\green232\blue232;}\fs22\sa120
+\pard\sb240\sa120\keepn{\b\fs40 Building a Real-Time, Photorealistic Avatar with a Generated Voice}\par
+\pard\sb240\sa120\keepn{\b\fs30 A practical guide, current to 4 October 2026}\par
+\pard\sa120 {\b How this guide was produced.} Eight large language models were asked how to build a real-time rendered photorealistic avatar with a generated voice. Every concrete claim in their answers was checked against primary sources (papers, repositories, licence files, vendor and engine documentation). This guide keeps what survived that check, drops what did not, and adds the corrections. Where a statement is a judgement rather than a verified fact, it is marked as such. Dates matter in this field: several products the models recommended no longer exist.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 1. Decide these first}\par
+\pard\sa120 Everything else follows from six questions. Answer them before choosing tools.\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b Question}\cell
+\pard\intbl\fs18 {\b Why it decides the architecture}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Does the camera ever leave a locked head-and-shoulders framing?\cell
+\pard\intbl\fs18 Locked framing allows 2D neural video, which is the cheapest route to a convincing mouth. Free camera, body, scene or XR needs true 3D (mesh or Gaussian splats).\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 A specific real person, or a synthetic person?\cell
+\pard\intbl\fs18 A real likeness needs capture footage and written consent. A synthetic human can be built from engine tools with no capture.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Interactive conversation, or driven from text or a script?\cell
+\pard\intbl\fs18 Conversation makes latency the hardest problem (target under about one second voice-to-voice) and requires barge-in handling.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Where does it render: a server GPU per session, or the client device?\cell
+\pard\intbl\fs18 Photoreal in a browser means server render plus WebRTC, or a Gaussian-splat avatar light enough for WebGPU.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 One kiosk, or thousands of concurrent web users?\cell
+\pard\intbl\fs18 Per-session GPU cost is the business model at scale.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Build or buy, and is the use commercial?\cell
+\pard\intbl\fs18 Many strong open models ship weights under non-commercial licences (Section 8).\cell
+\row
+\pard\sa120\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 2. The reference pipeline}\par
+\pard\sa120 Every component must stream. Never wait for a full response at any stage: first audio should start on the first clause of text, and first frames on the first 100 to 200 ms of audio.\par
+\pard\sa0\f1\fs16 [user mic] -> VAD / endpointing -> streaming STT --+\line                                                    +--> LLM (token stream) -> clause chunker\line [scripted text] -----------------------------------+                  |\line                                                                       v\line                                                          streaming TTS (PCM chunks)\line                                                            |                  |\line                                                            v                  v\line                                               audio -> facial motion     audio to client\line                                               (blendshapes, expression   (delayed to match\line                                                codes, or pixels)          the video path)\line                                                            |\line                                                            v\line             renderer (UE5 | Gaussian splats | 2D neural) -> NVENC H.264/AV1 -> WebRTC -> browser or app\par\pard\sa120\f0\fs22
+\pard\sa120 Two rules that every working system obeys:\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Audio is the master clock.} Facial animation follows audio timestamps, never the reverse.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Chunk at clause boundaries, with context carried over.} Chunking too aggressively ruins prosody; too lazily ruins latency.\par
+\pard\sa120
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 3. Four ways to produce the pixels}\par
+\pard\sb240\sa120\keepn{\b\fs25 Option A. Game-engine 3D: Unreal Engine 5 with MetaHuman}\par
+\pard\sa120 {\b How it works.} A rigged photoreal character is rasterised in real time with Lumen global illumination, strand-based groom hair, subsurface-scattering skin and refractive eyes. The face is driven by ARKit-52 blendshapes or the full MetaHuman rig; the body from a motion-capture library.\par
+\pard\sa120 {\b Face drivers available today (all verified):}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b NVIDIA Audio2Face-3D.} Open-sourced in September 2025 under MIT with an SDK, training framework, Maya plugin and Unreal Engine 5 plugin. Outputs ARKit blendshapes (46 from the template, 52 through blendshape solving) plus an emotion estimate. It retargets to any character through blendshape solving; per-character training is optional, not required. Two caveats: the diffusion model streams in bursts of about 28 frames every 470 ms because of its one-second window and half-second stride, so for conversational use prefer the regression model, which emits one frame per audio chunk. The ACE Unreal plugin 2.5 supports UE 5.5 and 5.6 only, so check compatibility on 5.7 or 5.8. The old Omniverse Launcher path was deprecated on 1 October 2025.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b MetaHuman Animator, audio-driven.} Introduced in UE 5.5 (November 2024) as an experimental offline solve; real-time audio-driven animation arrived in UE 5.6 (June 2025), with options for head movement and blinks.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b TTS viseme or blendshape events.} Azure Speech emits 55 blendshape values per frame at 60 fps alongside the audio. Amazon Polly emits viseme speech marks. Cartesia returns phoneme-level timestamps. This costs no extra inference and is frame-accurate, at the price of slightly mechanical co-articulation.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Optical capture.} Live Link Face on an iPhone into MetaHuman Animator, for an actor-driven avatar.\par
+\pard\sa120
+\pard\sa120 {\b Requirements.}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Skills: UE5 (Blueprint or C++), a technical artist for look-development, lighting and rig tuning, and animation sensibility.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Hardware: an RTX 4080-class GPU (16 GB) or better for 1080p60 with groom hair at LOD0. Server-side, one L40S or A10G per stream; an L4 only with card hair and reduced LOD. Pixel Streaming (WebRTC) for browsers.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Data: none for a synthetic human. For a real likeness, a head scan via MetaHuman identity capture or photogrammetry, then custom skin textures, which is where the real artist work lives.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Animation library: captured idle, listening and gesture clips, plus procedural blinks, saccades, breathing and look-at.\par
+\pard\sa120
+\pard\sa120 {\b Licensing (verified).} MetaHuman left Early Access in June 2025 and its licence now permits use in Unity, Godot and other engines without royalty. In June 2026, MetaHuman 5.8 shipped with Unreal Engine 5.8, and Epic open-sourced the RigLogic and DNA libraries as OpenRigLogic under MIT, so MetaHuman-compatible facial evaluation can run outside Unreal. Unreal itself is free under one million dollars of annual revenue; above that, non-game companies pay 1,850 dollars per seat per year rather than the five percent game royalty. The web-based MetaHuman Creator is being retired in phases and closes on 5 November 2026; creation now lives inside the engine.\par
+\pard\sa120 {\b Strengths.} Full body, free camera, scenes, lighting, outfits, deterministic output, stable identity, and native deployment to a kiosk or device.\par
+\pard\sa120 {\b Weaknesses.} Hardest to make truly photoreal in motion. The uncanny valley comes from animation (dead eyes, generic co-articulation, no micro-expressions), not from shaders. Budget more for animation than for rendering.\par
+\pard\sb240\sa120\keepn{\b\fs25 Option B. 2D audio-driven neural video (talking-head models)}\par
+\pard\sa120 {\b How it works.} A model takes a reference image or a short video of the person plus audio, and generates frames directly, either by inpainting the mouth region onto a looping base video or by generating whole-head motion.\par
+\pard\sa120 {\b Real-time-capable open models (verified):}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b MuseTalk.} Lip-region inpainting over a driving video; single forward pass per frame rather than iterative denoising; 30 fps or better on a V100; MIT licence for code, and the authors state the models may be used commercially. Output is a 256 by 256 face region, so an upscaler is usually bolted on.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Ditto} (Ant Group). Motion-space diffusion with a TensorRT path and a streaming mode designed for low first-frame delay.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b LivePortrait family.} One-shot portrait animation, about 12 to 15 ms per frame on an RTX 4090. It needs an audio-to-motion front end such as JoyVASA. It depends on InsightFace, whose models are licensed for non-commercial research only.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Person-specific NeRF heads} (SyncTalk, ER-NeRF, GeneFace++). Train on three to five minutes of the person, then render in real time; SyncTalk reports 50 fps.\par
+\pard\sa120
+\pard\sa120 {\b Not real time:} Hallo, OmniHuman, EchoMimic, Loopy, EMO, LatentSync (about 18 GB VRAM at 512 by 512) and MOVA (January 2026, Apache-2.0, eight-second clips). Treat these as offline or preview tools.\par
+\pard\sa120 {\b Requirements.} A portrait photo (low fidelity) or two to five minutes of static-camera video with gentle idle motion for the base loop; an RTX 4090, L4 or A10G carries one to three concurrent sessions at 25 to 30 fps; Python, CUDA and TensorRT skills; a compositing step to paste the face back into a higher-resolution frame; WebRTC publishing (LiveKit, Daily, aiortc or GStreamer).\par
+\pard\sa120 {\b Strengths.} The most photoreal result per dollar and per week of effort, because it is video of a person.\par
+\pard\sa120 {\b Weaknesses.} Fixed head-and-shoulders framing, limited head rotation, no camera moves, gestures limited to what the base loop contains, teeth and tongue artifacts, identity drift in long sessions, and per-session GPU cost.\par
+\pard\sb240\sa120\keepn{\b\fs25 Option C. Neural 3D: Gaussian-splat head avatars}\par
+\pard\sa120 {\b How it works.} Capture the person, optimise a cloud of 3D Gaussians rigged to a FLAME head mesh, animate with expression and pose parameters, and rasterise at well over 100 fps. This is the open-research form of the codec-avatar direction.\par
+\pard\sa120 {\b Methods (verified).} GaussianAvatars (multi-view rig). FlashAvatar, SplattingAvatar and MonoGaussianAvatar (monocular video; FlashAvatar trains in minutes and renders at 300 fps on a consumer GPU; SplattingAvatar reaches 30 fps on a mobile device). GaussianTalker and TalkingGaussian (audio-driven end to end, up to 120 fps). GaussianHeadTalk (WACV 2026) predicts 3DMM parameters from audio to suppress wobble. LAM builds an animatable Gaussian head from a single image, renders in the browser via WebGL and powers the OpenAvatarChat SDK. ExAvatar extends the idea to the whole body from a short monocular video. Tracking tools: VHAP or the metrical tracker for FLAME fitting.\par
+\pard\sa120 {\b Requirements.} One to three minutes of monocular 30 fps video (head turns of about 45 degrees each way, varied expressions, speech, flat lighting), or a multi-camera rig for the best quality; minutes to a few hours of training on a 4090; inference is trivially real time, even client-side; a driver from audio to FLAME expression (Audio2Face to ARKit to FLAME, or a learned per-subject mapping); PyTorch and CUDA skills and tolerance for research code.\par
+\pard\sa120 {\b Strengths.} True photorealism with 3D consistency, extremely cheap to render, and it can run in the browser.\par
+\pard\sa120 {\b Weaknesses.} Research maturity, mostly bust-only, weak hair, torso, hands and mouth interior, and expressions limited to what was captured.\par
+\pard\sa120 {\b Correction to a common claim.} Several models asserted that Gaussian-splat avatars need 24 to 64 cameras, hours to a day of training on data-centre GPUs, or an RTX 4080 to reach 30 fps. The published monocular methods above contradict each of those statements.\par
+\pard\sb240\sa120\keepn{\b\fs25 Option D. Buy it: hosted real-time avatar APIs}\par
+\pard\sa120 {\b Vendors with live products in October 2026.} Tavus (Phoenix-3, Conversational Video Interface), HeyGen (LiveAvatar / Interactive Avatar), D-ID (Agents), Synthesia (Interactive Avatar API, Enterprise tier), Simli, Anam, Beyond Presence, bitHuman, Azure TTS Avatar, and the enterprise 3D vendors Soul Machines and UneeQ.\par
+\pard\sa120 {\b Gone.} Hedra retired its Realtime Avatar product on 15 April 2026 and the LiveKit plugin was removed. Ready Player Me shut down its hosted avatar creator and public API on 31 January 2026 after the Netflix acquisition; do not build on it.\par
+\pard\sa120 {\b Orchestration.} LiveKit Agents ships avatar plugins for Anam, Beyond Presence (bey), bitHuman, D-ID, HeyGen (liveavatar), Simli, Synthesia and Tavus. Pipecat integrates Simli, Tavus and HeyGen. The orchestration layer is the durable part of the system; the avatar vendor can be swapped later.\par
+\pard\sa120 {\b Cost.} Published rates are in the tens of cents per conversation-minute: Tavus 0.26 to 0.35 dollars overage by tier, D-ID about 0.35, HeyGen interactive roughly 0.18 to 0.78. Cost scales linearly with usage.\par
+\pard\sa120 {\b Requirements.} API keys, a WebRTC client, two to five minutes of consent video for a custom likeness, and a per-minute budget.\par
+\pard\sb240\sa120\keepn{\b\fs25 Comparison}\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b }\cell
+\pard\intbl\fs18 {\b A. UE5 / MetaHuman}\cell
+\pard\intbl\fs18 {\b B. 2D neural}\cell
+\pard\intbl\fs18 {\b C. Gaussian splat}\cell
+\pard\intbl\fs18 {\b D. Hosted}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Face realism\cell
+\pard\intbl\fs18 Good in stills, risky in motion\cell
+\pard\intbl\fs18 Excellent\cell
+\pard\intbl\fs18 Excellent\cell
+\pard\intbl\fs18 Excellent\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Body, camera, scene\cell
+\pard\intbl\fs18 Yes\cell
+\pard\intbl\fs18 No\cell
+\pard\intbl\fs18 Bust only\cell
+\pard\intbl\fs18 No\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Specific real person\cell
+\pard\intbl\fs18 Hard (textures)\cell
+\pard\intbl\fs18 Easy\cell
+\pard\intbl\fs18 Moderate (capture and train)\cell
+\pard\intbl\fs18 Easy\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Frame rate\cell
+\pard\intbl\fs18 60 fps\cell
+\pard\intbl\fs18 25 to 30 fps\cell
+\pard\intbl\fs18 100 fps and above\cell
+\pard\intbl\fs18 25 to 30 fps\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 GPU per session\cell
+\pard\intbl\fs18 High\cell
+\pard\intbl\fs18 Medium\cell
+\pard\intbl\fs18 Low\cell
+\pard\intbl\fs18 Not yours\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Time to first demo\cell
+\pard\intbl\fs18 Weeks\cell
+\pard\intbl\fs18 Days\cell
+\pard\intbl\fs18 Weeks\cell
+\pard\intbl\fs18 Hours\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx1872
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3744
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx5616
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7488
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Maturity\cell
+\pard\intbl\fs18 Production\cell
+\pard\intbl\fs18 Production-ish\cell
+\pard\intbl\fs18 Research\cell
+\pard\intbl\fs18 Production\cell
+\row
+\pard\sa120\par
+\pard\sa120 {\b A hybrid worth knowing.} Render head and body in UE5 and composite a neural mouth (MuseTalk inpaints only the masked lower face) onto the engine frame. This keeps a free camera and 60 fps while borrowing 2D-grade lip detail. It is a real engineering project involving UV masks, alpha compositing and seam work, and it runs two models on one GPU. Judgement, not yet a documented product pattern.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 4. Voice}\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b Tier}\cell
+\pard\intbl\fs18 {\b Examples (verified)}\cell
+\pard\intbl\fs18 {\b Time to first audio}\cell
+\pard\intbl\fs18 {\b Notes}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Hosted streaming TTS\cell
+\pard\intbl\fs18 ElevenLabs Flash v2.5 (about 75 ms claimed), ElevenLabs Turbo v2.5 (about 300 ms), Cartesia Sonic (sub-90 ms claimed, about 40 ms model latency), Azure Neural, Amazon Polly, Google, Deepgram Aura, OpenAI TTS\cell
+\pard\intbl\fs18 40 to 300 ms plus network\cell
+\pard\intbl\fs18 Azure, Polly and Cartesia give visemes or phoneme timestamps for free. OpenAI's TTS returns neither visemes nor word timestamps.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Self-hosted, small and fast\cell
+\pard\intbl\fs18 Kokoro (82 M parameters, Apache-2.0, runs on CPU), Piper (MIT)\cell
+\pard\intbl\fs18 Under 100 ms\cell
+\pard\intbl\fs18 No or limited cloning, less expressive.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Self-hosted with cloning\cell
+\pard\intbl\fs18 CosyVoice 2 (Apache-2.0), Orpheus 3B (Apache-2.0), Chatterbox (MIT), Zonos (Apache-2.0), Sesame CSM-1B (Apache-2.0), Kyutai TTS\cell
+\pard\intbl\fs18 150 to 400 ms\cell
+\pard\intbl\fs18 Needs 4 to 12 GB of VRAM; vLLM or TensorRT helps.\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Speech-to-speech\cell
+\pard\intbl\fs18 OpenAI Realtime, Gemini Live, Amazon Nova Sonic, Kyutai Moshi\cell
+\pard\intbl\fs18 300 to 500 ms voice-to-voice\cell
+\pard\intbl\fs18 Collapses STT, LLM and TTS; you still need audio-to-face and lose control over text.\cell
+\row
+\pard\sa120\par
+\pard\sa120 {\b Licence traps.} XTTS-v2 is under the Coqui Public Model License (non-commercial). F5-TTS code is MIT but the released weights are CC-BY-NC. Fish Speech uses the Fish Audio Research License, and commercial use needs a separate licence. Wav2Lip is non-commercial. Retrieval-based Voice Conversion (RVC) is speech-to-speech voice conversion, not a text-to-speech system.\par
+\pard\sa120 {\b Benchmark yourself.} Vendor latency figures are measured at the model; independent WebSocket benchmarks add 100 to 200 ms of network. Run identical prompts from your users' region and report the 95th percentile.\par
+\pard\sa120 {\b Cloning data.} Five to thirty seconds for zero-shot cloning; thirty minutes to three hours of clean studio audio for a professional clone. Get written consent that explicitly covers voice cloning and synthetic media.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 5. Latency and synchronisation budget}\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b Stage}\cell
+\pard\intbl\fs18 {\b Typical}\cell
+\pard\intbl\fs18 {\b How to shrink it}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Endpointing (silence after the user stops)\cell
+\pard\intbl\fs18 200 to 400 ms\cell
+\pard\intbl\fs18 Silero VAD plus semantic endpointing\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 STT final\cell
+\pard\intbl\fs18 50 to 150 ms\cell
+\pard\intbl\fs18 Streaming partials are already available\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 LLM first clause\cell
+\pard\intbl\fs18 250 to 600 ms\cell
+\pard\intbl\fs18 Small, fast model tuned for time to first token\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 TTS first audio\cell
+\pard\intbl\fs18 80 to 250 ms\cell
+\pard\intbl\fs18 Split on clause boundaries, keep prosody context\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Audio to face, render, encode\cell
+\pard\intbl\fs18 40 to 120 ms (plus any model lookahead)\cell
+\pard\intbl\fs18 NVENC low-latency preset\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Network, jitter buffer, decode\cell
+\pard\intbl\fs18 80 to 200 ms\cell
+\pard\intbl\fs18 WebRTC\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 {\b Voice-to-voice total}\cell
+\pard\intbl\fs18 {\b 0.7 to 1.5 s typical; about 0.5 s is excellent}\cell
+\pard\intbl\fs18 Speech-to-speech models collapse three stages\cell
+\row
+\pard\sa120\par
+\pard\sa120 {\b Audio-video sync.} ITU-R BT.1359 puts the detectability threshold at audio leading by 45 ms to audio lagging by 125 ms, and acceptability at plus 90 to minus 190 ms. Timestamp from one clock and delay audio playout by the animation latency. Unreal Pixel Streaming handles this when audio plays through the engine; custom pipelines must do it through RTP timestamps.\par
+\pard\sa120 {\b Barge-in.} Detect user speech during avatar speech (client echo cancellation), cancel the LLM stream, flush TTS, clear animation and audio queues, and blend to a listening pose, all consistently.\par
+\pard\sa120 {\b Liveness.} Blinks every three to six seconds with irregular timing, saccades, breathing, head sway, listening nods and backchannels. In 2D methods the base-video loop supplies these, so choose loop points carefully. This layer contributes more to "alive" than skin shading does.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 6. Hardware sizing}\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b Deployment}\cell
+\pard\intbl\fs18 {\b GPU}\cell
+\pard\intbl\fs18 {\b What it carries}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Development workstation\cell
+\pard\intbl\fs18 RTX 4090 or 5090\cell
+\pard\intbl\fs18 UE5 plus Audio2Face plus a small TTS; LLM via API or a second GPU\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Kiosk or installation\cell
+\pard\intbl\fs18 RTX 4070 to 4090 PC\cell
+\pard\intbl\fs18 UE5 locally at 1080p60, voice via API\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Cloud, UE5 per session\cell
+\pard\intbl\fs18 L40S or A10G (L4 at reduced LOD)\cell
+\pard\intbl\fs18 One session per GPU, NVENC encode\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Cloud, 2D neural\cell
+\pard\intbl\fs18 L4, A10G or 4090\cell
+\pard\intbl\fs18 One to three sessions per 24 GB GPU at 30 fps\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Cloud, Gaussian splat\cell
+\pard\intbl\fs18 L4 or smaller, or client-side\cell
+\pard\intbl\fs18 Many sessions per GPU\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx3120
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx6240
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Self-hosted TTS\cell
+\pard\intbl\fs18 Shared GPU, 4 to 12 GB (Kokoro: CPU)\cell
+\pard\intbl\fs18 Several concurrent streams\cell
+\row
+\pard\sa120\par
+\pard\sa120 Reference prices (AWS us-east-1 on demand, October 2026): g5.2xlarge with one A10G at 1.21 dollars per hour; g6e.xlarge with one L40S at 1.86 dollars per hour. Note that an RTX 4080 has 16 GB of VRAM, not 24 GB; the 24 GB card is the 4090. A gigabit fibre line is not a requirement for streaming TTS, which runs at tens of kilobits per second.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 7. Audio-to-face options at a glance}\par
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\clcbpat3\cellx9360
+\pard\intbl\fs18 {\b Approach}\cell
+\pard\intbl\fs18 {\b Latency}\cell
+\pard\intbl\fs18 {\b Fidelity}\cell
+\pard\intbl\fs18 {\b Cost to set up}\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Audio2Face-3D regression model (open source)\cell
+\pard\intbl\fs18 Tens of ms per frame\cell
+\pard\intbl\fs18 High, with emotion\cell
+\pard\intbl\fs18 Medium: plugin, retarget, tune\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Audio2Face-3D diffusion model\cell
+\pard\intbl\fs18 Bursty, about 470 ms cadence\cell
+\pard\intbl\fs18 Higher co-articulation\cell
+\pard\intbl\fs18 Not for interactive use without buffering\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 MetaHuman Animator audio-driven (UE 5.6 and later)\cell
+\pard\intbl\fs18 Real-time mode\cell
+\pard\intbl\fs18 High\cell
+\pard\intbl\fs18 Low inside Unreal\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 TTS visemes or blendshapes (Azure, Polly, Cartesia)\cell
+\pard\intbl\fs18 About zero\cell
+\pard\intbl\fs18 Medium, slightly mechanical\cell
+\pard\intbl\fs18 Low\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Optical capture (Live Link Face)\cell
+\pard\intbl\fs18 About 20 ms\cell
+\pard\intbl\fs18 Highest\cell
+\pard\intbl\fs18 Needs an actor\cell
+\row
+\trowd\trgaph80\trleft0
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx2340
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx4680
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx7020
+\clbrdrt\brdrs\brdrw10\clbrdrl\brdrs\brdrw10\clbrdrb\brdrs\brdrw10\clbrdrr\brdrs\brdrw10\cellx9360
+\pard\intbl\fs18 Research drivers (UniTalker, EMOTE, GaussianHeadTalk)\cell
+\pard\intbl\fs18 Varies\cell
+\pard\intbl\fs18 Varies\cell
+\pard\intbl\fs18 High: research code\cell
+\row
+\pard\sa120\par
+\pard\sa120 For a locked talking-head framing, viseme timestamps from the TTS are competitive with neural lip-sync at a fraction of the cost. Reach for Audio2Face or a neural model when you need emotional range or a moving camera.\par
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 8. Legal and licensing checklist}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Engine.} Unreal: free under one million dollars of revenue; 1,850 dollars per seat per year for non-game companies above it. MetaHuman characters may be used in other engines; OpenRigLogic is MIT.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Models.} Check weights separately from code. Non-commercial: XTTS-v2, F5-TTS weights, Fish Speech, Wav2Lip, InsightFace models (and therefore stock LivePortrait). Permissive: MuseTalk, Ditto, Kokoro, Piper, CosyVoice 2, Orpheus, Chatterbox, Zonos, Sesame CSM, LatentSync, MOVA.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Likeness and voice.} Written consent covering cloning, synthetic media, permitted uses, duration and revocation; secure storage of voice assets.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}{\b Disclosure.} The EU AI Act's Article 50 transparency rules (chatbot disclosure, deepfake labelling) apply from 2 August 2026. Biometric data rules under GDPR and Illinois BIPA apply when the avatar is a real person. Consider C2PA provenance marks.\par
+\pard\sa120
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 9. What to build, by scenario}\par
+\pard\sa120 {\b Web product, live fast, head-and-shoulders.} LiveKit Agents or Pipecat, Deepgram STT, a fast LLM, Cartesia or ElevenLabs TTS, and a hosted avatar (Tavus, Simli, Anam, HeyGen, Synthesia). Swap the avatar vendor later; the orchestration is the durable part.\par
+\pard\sa120 {\b Own IP, full control, body and scene, kiosk or installation.} UE5 plus MetaHuman plus Audio2Face-3D (regression model) or MetaHuman Animator real-time audio, plus streaming TTS (Azure if you want free visemes), plus Pixel Streaming for remote clients. Spend the budget on captured idle, listening and gesture performance from a real actor, not on more shader work.\par
+\pard\sa120 {\b A specific real person, maximum realism, cheap to run.} Capture two to three minutes of video, train a Gaussian-splat head (or a per-person 2D model such as MuseTalk over a base loop) and drive it from Audio2Face or FLAME parameters. More engineering, lowest per-minute cost, best realism; accept research-grade tooling.\par
+\pard\sa120 {\b Lowest possible latency.} A speech-to-speech model (OpenAI Realtime or Gemini Live) feeding Audio2Face-3D and any renderer, with a short lookahead and matched audio delay.\par
+\pard\sa120 {\b A six-week plan for the engine route.}\par
+\pard\fi-360\li720\sa80 1.\tab Weeks 1 to 2: voice and brain. Streaming STT, LLM with clause chunking, streaming TTS with timestamps, measured end to end at the 95th percentile.\par
+\pard\fi-360\li720\sa80 2.\tab Weeks 2 to 3: the face. MetaHuman in UE5; drive it from TTS visemes first, then add Audio2Face-3D regression; verify audio-video offset stays inside the ITU window.\par
+\pard\fi-360\li720\sa80 3.\tab Weeks 3 to 4: liveness and interruption. Idle library, blinks, saccades, look-at; barge-in that flushes every queue.\par
+\pard\fi-360\li720\sa80 4.\tab Weeks 4 to 5: delivery. Pixel Streaming or native build, NVENC settings, TURN servers, one GPU per session measured.\par
+\pard\fi-360\li720\sa80 5.\tab Week 6: hardening. Session timeouts, cost per active minute, consent and disclosure flows, failure tests on teeth, tongue, hair edges, long sessions.\par
+\pard\sa120
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 10. Mistakes to avoid (all observed in the model answers)}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Treating LivePortrait as a per-person trained model. It is one-shot.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Expecting OpenAI's TTS to return visemes or timestamps. It does not; Azure, Polly and Cartesia do.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Planning on Unity HDRP in a browser. HDRP is not supported on WebGL; URP is.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Calling Audio2Photoreal a Gaussian-splat avatar or a talking-head driver. It is Meta's audio-to-gesture model rendered with Codec Avatars.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Attributing OmniAvatar to Sony or to 3DGS. It is a Zhejiang University and Alibaba audio-driven video-generation model.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Classing Nerfies as Gaussian splatting (it is a 2021 deformable NeRF), FaceX-Zoo as a lip-sync model (it is a face-recognition toolbox), EMO or Loopy as 3D head drivers (they are 2D video diffusion), or RVC as text-to-speech (it is voice conversion).\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Using Rhubarb Lip Sync for live audio. It is an offline command-line tool over recorded files.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Claiming "generating video frames is too slow for real time." MuseTalk, Ditto and SyncTalk run at 30 to 50 fps.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Saying Audio2Face-3D "needs per-character training" or "outputs 100-plus blendshapes." It retargets by blendshape solving and outputs 46 or 52 ARKit blendshapes.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Recommending Ready Player Me or Hedra's realtime avatar. Both were discontinued in 2026.\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Quoting the five-percent Unreal royalty as the only cost. Non-game companies above one million dollars pay a per-seat licence.\par
+\pard\sa120
+\pard\brdrb\brdrs\brdrw10\brsp20\sa120\par
+\pard\sb240\sa120\keepn{\b\fs30 11. Key sources}\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}NVIDIA Audio2Face-3D SDK (MIT): https://github.com/NVIDIA/Audio2Face-3D-SDK; paper: https://arxiv.org/abs/2508.16401; blendshape output: https://docs.nvidia.com/ace/audio2face-3d-microservice/2.0/text/getting-started/overview.html; diffusion streaming cadence: https://forums.developer.nvidia.com/t/361109; ACE Unreal plugin 2.5 changelog: https://docs.nvidia.com/ace/ace-unreal-plugin/2.5/ace-unreal-plugin-changelog.html\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}MetaHuman audio-driven animation: https://dev.epicgames.com/documentation/en-us/metahuman/audio-driven-animation; MetaHuman 5.6 licence change: https://metahuman.com/news/metahuman-leaves-early-access-with-a-feature-packed-new-release; MetaHuman 5.8 and OpenRigLogic: https://github.com/EpicGames/openriglogic; web Creator shutdown: https://gamedev.net/news/1981-metahuman-creator-web-application-is-being-discontinued/; Unreal seat pricing: https://www.unrealengine.com/en-US/blog/we-are-updating-unreal-engine-twinmotion-and-realitycapture-pricing-in-late-april\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Azure visemes: https://docs.azure.cn/en-us/ai-services/speech-service/how-to-speech-synthesis-viseme; Polly speech marks: https://docs.aws.amazon.com/polly/latest/dg/speechmarks.html; Cartesia phoneme timestamps: https://docs.cartesia.ai/examples/tts-sse-with-phoneme-timestamps\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}MuseTalk: https://github.com/TMElyralab/MuseTalk; Ditto: https://arxiv.org/abs/2411.19509; LivePortrait speed: https://github.com/KwaiVGI/LivePortrait/blob/main/assets/docs/speed.md; InsightFace licence: https://github.com/deepinsight/insightface#license; JoyVASA: https://arxiv.org/abs/2411.09209; SyncTalk: https://arxiv.org/abs/2311.17590\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}GaussianAvatars: https://arxiv.org/abs/2312.02069; FlashAvatar: https://arxiv.org/abs/2312.02214; SplattingAvatar: https://arxiv.org/abs/2403.05087; GaussianTalker: https://arxiv.org/abs/2404.16012; GaussianHeadTalk: https://arxiv.org/abs/2512.10939; LAM: https://github.com/aigc3d/LAM; ExAvatar: https://arxiv.org/abs/2407.21686; VHAP: https://github.com/ShenhanQian/VHAP\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}TTS licences: Kokoro https://github.com/hexgrad/kokoro; CosyVoice https://github.com/FunAudioLLM/CosyVoice; Orpheus https://github.com/canopyai/Orpheus-TTS; Chatterbox https://github.com/resemble-ai/chatterbox; Zonos https://github.com/Zyphra/Zonos; Sesame CSM https://github.com/SesameAILabs/csm; F5-TTS https://github.com/SWivid/F5-TTS#license; Fish Speech https://github.com/fishaudio/fish-speech/blob/main/LICENSE; XTTS https://github.com/coqui-ai/TTS/blob/dev/docs/source/models/xtts.md\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Vendor status: Hedra realtime sunset https://docs.livekit.io/agents/integrations/avatar/hedra; Ready Player Me shutdown https://avatarsdk.com/blog/2026/07/07/ready-player-me-migration-guide/; LiveKit avatar plugins https://github.com/livekit/agents/tree/main/livekit-plugins; Tavus pricing https://www.tavus.io/pricing; Synthesia Interactive Avatar API https://www.synthesia.io/post/interactive-avatar-api-real-time-avatars\par
+\pard\fi-360\li720\sa80{\pntext\'b7\tab}{\*\pn\pnlvlblt\pnf0\pnindent360{\pntxtb\'b7}}Sync thresholds (ITU-R BT.1359): https://www.tvtechnology.com/opinions/av-synchronization-how-bad-is-bad; EU AI Act Article 50: https://artificialintelligenceact.eu/transparency-rules-article-50/; AWS GPU prices: https://calculator.holori.com/aws/ec2/g5.2xlarge/us-east-1\par
+\pard\sa120
+}
